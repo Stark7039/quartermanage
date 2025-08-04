@@ -25,8 +25,18 @@ const QuarterVacancyApp = () => {
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [quarterData, setQuarterData] = useState([]);
+  const [caretakerData, setCaretakerData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Mock caretaker data
+  const mockCaretakerData = {
+    'Akshaya': { name: 'Rajesh Kumar', number: '+91-9876543210', meetingPlace: 'Main Gate' },
+    'Kormangala': { name: 'Suresh Babu', number: '+91-9876543211', meetingPlace: 'Reception' },
+    'Madavara': { name: 'Ganesh Reddy', number: '+91-9876543212', meetingPlace: 'Admin Block' },
+    'Yehalanka': { name: 'Ramesh Singh', number: '+91-9876543213', meetingPlace: 'Club House' },
+    'Jayamahal': { name: 'Mahesh Gowda', number: '+91-9876543214', meetingPlace: 'Garden Area' }
+  };
 
   // Mock data for demonstration - only vacant quarters
   const mockData = {
@@ -58,6 +68,40 @@ const QuarterVacancyApp = () => {
     fetchWorksheetNames();
   }, []);
 
+  const fetchCaretakerData = async () => {
+    try {
+      const range = `Caretakers!A:D`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch caretaker data: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.values && data.values.length > 1) {
+        const caretakers = {};
+        data.values.slice(1).forEach(row => {
+          const place = row[0];
+          if (place) {
+            caretakers[place] = {
+              name: row[1] || 'N/A',
+              number: row[2] || 'N/A',
+              meetingPlace: row[3] || 'N/A'
+            };
+          }
+        });
+        setCaretakerData(caretakers);
+      }
+    } catch (err) {
+      console.error('Error fetching caretaker data:', err);
+      // Fallback to mock caretaker data
+      setCaretakerData(mockCaretakerData);
+    }
+  };
+
   const fetchWorksheetNames = async () => {
     setLoading(true);
     setError(null);
@@ -74,11 +118,15 @@ const QuarterVacancyApp = () => {
       const data = await response.json();
       
       if (data.sheets && data.sheets.length > 0) {
-        const sheetNames = data.sheets.map(sheet => sheet.properties.title);
+        const sheetNames = data.sheets
+          .map(sheet => sheet.properties.title)
+          .filter(name => name !== 'Caretakers'); // Exclude Caretakers sheet from locations
+        
         setLocations(sheetNames);
         setSelectedLocation(sheetNames[0]);
         
-        // Fetch data for the first location
+        // Fetch caretaker data first, then quarter data
+        await fetchCaretakerData();
         fetchGoogleSheetData(sheetNames[0]);
       } else {
         throw new Error('No worksheets found in the spreadsheet');
@@ -91,6 +139,7 @@ const QuarterVacancyApp = () => {
       const locationNames = ['Akshaya', 'Kormangala', 'Madavara', 'Yehalanka', 'Jayamahal'];
       setLocations(locationNames);
       setSelectedLocation(locationNames[0]);
+      setCaretakerData(mockCaretakerData);
       setQuarterData(mockData[locationNames[0]] || []);
     } finally {
       setLoading(false);
@@ -102,7 +151,7 @@ const QuarterVacancyApp = () => {
     setError(null);
 
     try {
-      const range = `${sheetName}!A:C`;
+      const range = `${sheetName}!A:C`; // Back to A:C since caretaker info is separate
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
       
       const response = await fetch(url);
@@ -199,7 +248,7 @@ const QuarterVacancyApp = () => {
           )
         ),
 
-      // Quarter Data
+      // Quarter Data with Caretaker Info
       selectedLocation &&
         React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6" },
           React.createElement('div', { className: "flex justify-between items-center mb-4" },
@@ -215,6 +264,29 @@ const QuarterVacancyApp = () => {
               "Refresh"
             )
           ),
+
+          // Caretaker Info Section
+          caretakerData[selectedLocation] &&
+            React.createElement('div', { className: "bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6" },
+              React.createElement('h3', { className: "text-lg font-semibold text-blue-800 mb-3" }, "Contact Information"),
+              React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-700" },
+                React.createElement('div', null,
+                  React.createElement('div', { className: "font-medium text-sm text-blue-600" }, "Caretaker"),
+                  React.createElement('div', { className: "text-lg" }, caretakerData[selectedLocation].name)
+                ),
+                React.createElement('div', null,
+                  React.createElement('div', { className: "font-medium text-sm text-blue-600" }, "Phone Number"),
+                  React.createElement('a', { 
+                    href: `tel:${caretakerData[selectedLocation].number}`,
+                    className: "text-lg underline hover:text-blue-900"
+                  }, caretakerData[selectedLocation].number)
+                ),
+                React.createElement('div', null,
+                  React.createElement('div', { className: "font-medium text-sm text-blue-600" }, "Meeting Place"),
+                  React.createElement('div', { className: "text-lg" }, caretakerData[selectedLocation].meetingPlace)
+                )
+              )
+            ),
 
           error &&
             React.createElement('div', { className: "bg-red-50 border border-red-200 rounded-md p-4 mb-4" },
@@ -255,7 +327,8 @@ const QuarterVacancyApp = () => {
         React.createElement('div', { className: "text-blue-700 space-y-2" },
           React.createElement('p', null, "✅ App is configured and ready to use!"),
           React.createElement('p', null, "✅ Worksheet names are automatically detected from your Google Sheet"),
-          React.createElement('p', null, "✅ Each worksheet should have: Quarter Number | Building Number | Vacancy Status"),
+          React.createElement('p', null, "✅ Each location worksheet should have: Quarter Number | Building Number | Vacancy Status"),
+          React.createElement('p', null, "✅ Create a 'Caretakers' worksheet with: Place | Caretaker | Numbers | Meeting Place"),
           React.createElement('p', null, "✅ Make sure your spreadsheet is publicly readable (Anyone with link → Viewer)"),
           React.createElement('p', null, "🔄 Add/remove/rename worksheets in Google Sheets and the app will adapt automatically!")
         )
