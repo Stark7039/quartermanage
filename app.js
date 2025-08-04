@@ -1,8 +1,24 @@
 const { useState, useEffect } = React;
-const { RefreshCw, MapPin, Home, AlertCircle } = lucide;
+
+// Simple icon components (replacing Lucide)
+const RefreshIcon = () => React.createElement('svg', {
+  width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2
+}, React.createElement('path', { d: 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' }), React.createElement('path', { d: 'M21 3v5h-5' }), React.createElement('path', { d: 'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' }), React.createElement('path', { d: 'M3 21v-5h5' }));
+
+const MapIcon = () => React.createElement('svg', {
+  width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2
+}, React.createElement('path', { d: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91-6.91a6 6 0 0 1 7.94-7.94l3.77 3.77z' }));
+
+const HomeIcon = () => React.createElement('svg', {
+  width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2
+}, React.createElement('path', { d: 'M20 9v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9' }), React.createElement('path', { d: 'M9 22V12h6v10M2 10.6L12 2l10 8.6' }));
+
+const AlertIcon = () => React.createElement('svg', {
+  width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2
+}, React.createElement('circle', { cx: 12, cy: 12, r: 10 }), React.createElement('line', { x1: 12, y1: 8, x2: 12, y2: 12 }), React.createElement('line', { x1: 12, y1: 16, x2: 12.01, y2: 16 }));
 
 const QuarterVacancyApp = () => {
-  // Replace these with your actual credentials
+  // Configuration - Replace with your actual credentials
   const SPREADSHEET_ID = '1CUe-rvS2JQYFsyMG8T3t5vQ0vu_uOuySVe_G7ejfEX0';
   const API_KEY = 'AIzaSyAtt2w_DmREy_Io04NR9SqkllNR6J-eZb8';
   
@@ -11,54 +27,77 @@ const QuarterVacancyApp = () => {
   const [quarterData, setQuarterData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isConfigured, setIsConfigured] = useState(true);
 
-  // Mock data for demonstration - only vacant quarters (replace location names with your actual ones)
+  // Mock data for demonstration - only vacant quarters
   const mockData = {
-    'North Campus': [
+    'Akshaya': [
       { quarterNumber: 'Q-101', buildingNumber: 'B-1', vacancyStatus: 'Vacant' },
       { quarterNumber: 'Q-103', buildingNumber: 'B-1', vacancyStatus: 'Vacant' },
       { quarterNumber: 'Q-202', buildingNumber: 'B-2', vacancyStatus: 'Vacant' },
     ],
-    'South Campus': [
+    'Kormangala': [
       { quarterNumber: 'Q-301', buildingNumber: 'B-3', vacancyStatus: 'Vacant' },
       { quarterNumber: 'Q-302', buildingNumber: 'B-3', vacancyStatus: 'Vacant' },
     ],
-    'East Campus': [
+    'Madavara': [
       { quarterNumber: 'Q-402', buildingNumber: 'B-4', vacancyStatus: 'Vacant' },
       { quarterNumber: 'Q-404', buildingNumber: 'B-4', vacancyStatus: 'Vacant' },
     ],
-    'West Campus': [
+    'Yehalanka': [
       { quarterNumber: 'Q-501', buildingNumber: 'B-5', vacancyStatus: 'Vacant' },
     ],
-    'Central Campus': [
+    'Jayamahal': [
       { quarterNumber: 'Q-602', buildingNumber: 'B-6', vacancyStatus: 'Vacant' },
       { quarterNumber: 'Q-603', buildingNumber: 'B-6', vacancyStatus: 'Vacant' },
       { quarterNumber: 'Q-605', buildingNumber: 'B-6', vacancyStatus: 'Vacant' },
     ]
   };
 
-  // Initialize locations - replace with your actual location names
+  // Initialize locations - fetch from Google Sheets
   useEffect(() => {
-    const locationNames = ['North Campus', 'South Campus', 'East Campus', 'West Campus', 'Central Campus'];
-    setLocations(locationNames);
-    setSelectedLocation(locationNames[0]);
-    
-    // Fetch data for first location
-    if (SPREADSHEET_ID !== 'YOUR_SPREADSHEET_ID_HERE' && API_KEY !== 'YOUR_GOOGLE_SHEETS_API_KEY_HERE') {
-      fetchGoogleSheetData(locationNames[0]);
-    } else {
-      setQuarterData(mockData[locationNames[0]] || []);
-    }
+    fetchWorksheetNames();
   }, []);
 
-  const fetchGoogleSheetData = async (sheetName) => {
-    if (!SPREADSHEET_ID || !API_KEY || SPREADSHEET_ID === 'YOUR_SPREADSHEET_ID_HERE' || API_KEY === 'YOUR_GOOGLE_SHEETS_API_KEY_HERE') {
-      // Use mock data if credentials not configured
-      setQuarterData(mockData[sheetName] || []);
-      return;
-    }
+  const fetchWorksheetNames = async () => {
+    setLoading(true);
+    setError(null);
 
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?key=${API_KEY}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch spreadsheet info: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.sheets && data.sheets.length > 0) {
+        const sheetNames = data.sheets.map(sheet => sheet.properties.title);
+        setLocations(sheetNames);
+        setSelectedLocation(sheetNames[0]);
+        
+        // Fetch data for the first location
+        fetchGoogleSheetData(sheetNames[0]);
+      } else {
+        throw new Error('No worksheets found in the spreadsheet');
+      }
+    } catch (err) {
+      setError(`Error fetching worksheet names: ${err.message}`);
+      console.error('Error fetching worksheet names:', err);
+      
+      // Fallback to mock data
+      const locationNames = ['Akshaya', 'Kormangala', 'Madavara', 'Yehalanka', 'Jayamahal'];
+      setLocations(locationNames);
+      setSelectedLocation(locationNames[0]);
+      setQuarterData(mockData[locationNames[0]] || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGoogleSheetData = async (sheetName) => {
     setLoading(true);
     setError(null);
 
@@ -90,6 +129,7 @@ const QuarterVacancyApp = () => {
     } catch (err) {
       setError(`Error fetching data: ${err.message}`);
       console.error('Error fetching Google Sheets data:', err);
+      // Fallback to mock data on error
       setQuarterData(mockData[sheetName] || []);
     } finally {
       setLoading(false);
@@ -119,28 +159,18 @@ const QuarterVacancyApp = () => {
       // Header
       React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6 mb-6" },
         React.createElement('h1', { className: "text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2" },
-          React.createElement(Home, { className: "text-blue-600" }),
+          React.createElement(HomeIcon),
           "Quarter Vacancy Checker"
         ),
         React.createElement('p', { className: "text-gray-600" }, "Check available quarters across different locations")
       ),
 
-      // Configuration Panel
-      (SPREADSHEET_ID === 'YOUR_SPREADSHEET_ID_HERE' || API_KEY === 'YOUR_GOOGLE_SHEETS_API_KEY_HERE') &&
-        React.createElement('div', { className: "bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6" },
-          React.createElement('h2', { className: "text-xl font-semibold mb-4 flex items-center gap-2 text-yellow-800" },
-            React.createElement(AlertCircle, { className: "text-yellow-600" }),
-            "Demo Mode"
-          ),
-          React.createElement('p', { className: "text-yellow-700" },
-            "Currently showing demo data. To connect to your Google Spreadsheet, update the SPREADSHEET_ID and API_KEY variables in the code."
-          )
-        ),
+      // Demo mode notice - removed since API key is now configured
 
       // Location Selection
       React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6 mb-6" },
         React.createElement('h2', { className: "text-xl font-semibold mb-4 flex items-center gap-2" },
-          React.createElement(MapPin, { className: "text-green-600" }),
+          React.createElement(MapIcon),
           "Select Location"
         ),
         React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-5 gap-3" },
@@ -162,8 +192,8 @@ const QuarterVacancyApp = () => {
 
       // Statistics
       selectedLocation &&
-        React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-1 gap-4 mb-6" },
-          React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6" },
+        React.createElement('div', { className: "grid grid-cols-1 gap-4 mb-6" },
+          React.createElement('div', { className: "bg-white rounded-lg shadow-md p-6 text-center" },
             React.createElement('div', { className: "text-3xl font-bold text-green-600" }, stats.vacant),
             React.createElement('div', { className: "text-gray-600" }, "Available Vacant Quarters")
           )
@@ -181,7 +211,7 @@ const QuarterVacancyApp = () => {
               disabled: loading,
               className: "flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
             },
-              React.createElement(RefreshCw, { className: `w-4 h-4 ${loading ? 'animate-spin' : ''}` }),
+              React.createElement(RefreshIcon),
               "Refresh"
             )
           ),
@@ -193,8 +223,7 @@ const QuarterVacancyApp = () => {
 
           loading
             ? React.createElement('div', { className: "flex justify-center items-center py-8" },
-                React.createElement(RefreshCw, { className: "w-8 h-8 animate-spin text-blue-600" }),
-                React.createElement('span', { className: "ml-2 text-gray-600" }, "Loading...")
+                React.createElement('div', { className: "text-blue-600" }, "Loading..."),
               )
             : quarterData.length > 0
             ? React.createElement('div', { className: "overflow-x-auto" },
@@ -224,12 +253,11 @@ const QuarterVacancyApp = () => {
       React.createElement('div', { className: "bg-blue-50 rounded-lg p-6 mt-6" },
         React.createElement('h3', { className: "text-lg font-semibold text-blue-800 mb-2" }, "Setup Instructions:"),
         React.createElement('div', { className: "text-blue-700 space-y-2" },
-          React.createElement('p', null, "1. Create a Google Spreadsheet with worksheets named: North Campus, South Campus, East Campus, West Campus, Central Campus"),
-          React.createElement('p', null, "2. Each worksheet should have columns: Quarter Number, Building Number, Vacancy Status"),
-          React.createElement('p', null, "3. Get a Google Sheets API key from Google Cloud Console"),
-          React.createElement('p', null, "4. Make your spreadsheet publicly readable"),
-          React.createElement('p', null, "5. Replace SPREADSHEET_ID and API_KEY variables in the code with your actual values"),
-          React.createElement('p', null, "6. Deploy to a free hosting service like Netlify, Vercel, or GitHub Pages")
+          React.createElement('p', null, "✅ App is configured and ready to use!"),
+          React.createElement('p', null, "✅ Worksheet names are automatically detected from your Google Sheet"),
+          React.createElement('p', null, "✅ Each worksheet should have: Quarter Number | Building Number | Vacancy Status"),
+          React.createElement('p', null, "✅ Make sure your spreadsheet is publicly readable (Anyone with link → Viewer)"),
+          React.createElement('p', null, "🔄 Add/remove/rename worksheets in Google Sheets and the app will adapt automatically!")
         )
       )
     )
